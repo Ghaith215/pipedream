@@ -20,6 +20,12 @@ export default {
         intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
       },
     },
+    // eslint-disable-next-line pipedream/props-label, pipedream/props-description
+    alert: {
+      type: "alert",
+      alertType: "info",
+      content: "**Important**: If your sheet has more than 1000 rows, please set the **Monitoring Range** below to avoid performance issues and potential disruptions. Example: `A1:Z1000` to monitor the first 1000 rows with columns A through Z.",
+    },
     watchedDrive: {
       propDefinition: [
         googleSheets,
@@ -36,11 +42,50 @@ export default {
         }),
       ],
     },
-    ...common.props,
+    worksheetIDs: {
+      propDefinition: [
+        googleSheets,
+        "worksheetIDs",
+        (c) => ({
+          sheetId: c.sheetID,
+        }),
+      ],
+      type: "integer[]",
+      label: "Worksheet ID(s)",
+      description: "Select one or more worksheet(s), or provide an array of worksheet IDs.",
+    },
+    monitoringRange: {
+      type: "string",
+      label: "Monitoring Range",
+      description: "The A1 notation range to monitor for changes (e.g., `A1:B100` or `Sheet1!A1:Z1000`). If not specified, the entire sheet will be monitored up to 10000 rows. **Recommended for sheets with more than 1000 rows**.",
+      optional: true,
+    },
   },
   methods: {
     ...base.methods,
     ...common.methods,
+    getMonitoringRange() {
+      return this.monitoringRange;
+    },
+    async getContentDiff(spreadsheet, worksheet) {
+      const sheetId = this.getSheetId();
+      const baseId = `${spreadsheet.spreadsheetId}${worksheet.properties.sheetId}`;
+      const oldValues = this._getBatchedSheetValues(baseId) || null;
+
+      // Use monitoring range if specified, otherwise use worksheet title
+      const range = this.monitoringRange
+        ? this.monitoringRange
+        : worksheet.properties.title;
+
+      const currentValues = await this.googleSheets.getSpreadsheetValues(
+        sheetId,
+        range,
+      );
+      return {
+        oldValues,
+        currentValues,
+      };
+    },
   },
   hooks: {
     async deploy() {
