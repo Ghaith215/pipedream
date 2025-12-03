@@ -1,0 +1,147 @@
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import shutil, os
+
+Base = declarative_base()
+DB_NAME = "alpha.db"
+engine = create_engine(f"sqlite:///{DB_NAME}")
+SessionLocal = sessionmaker(bind=engine)
+
+class Movie(Base):
+    __tablename__ = "movies"
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    year = Column(String)
+    description = Column(String)
+    category = Column(String)
+    image = Column(String)
+    link = Column(String)
+    type = Column(String)
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/movies")
+def get_movies():
+    db = SessionLocal()
+    movies = db.query(Movie).all()
+    db.close()
+    return [{"id": m.id, "title": m.title, "year": m.year, "description": m.description,
+             "category": m.category, "image": m.image, "link": m.link,
+             "type": m.type} for m in movies]
+
+@app.post("/add_movie")
+def add_movie(title: str = Form(...), year: str = Form(...), description: str = Form(...),
+              category: str = Form(...), link: str = Form(...), type: str = Form(...),
+              image: UploadFile = File(...)):
+    db = SessionLocal()
+    os.makedirs("images", exist_ok=True)
+    image_path = f"images/{image.filename}"
+    with open(image_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
+    movie = Movie(title=title, year=year, description=description,
+                  category=category, image=image_path, link=link, type=type)
+    db.add(movie)
+    db.commit()
+    db.close()
+    return JSONResponse({"message":"Movie added successfully"})
+fastapi
+uvicorn
+sqlalchemy
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+import React, { useEffect, useState } from "react";
+import MovieCard from "./components/MovieCard";
+import BottomNav from "./components/BottomNav";
+import "./App.css";
+
+function App() {
+  const [movies, setMovies] = useState([]);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch("https://YOUR_RAILWAY_BACKEND_URL/movies") // ضع رابط API بعد رفع Backend
+      .then(res => res.json())
+      .then(data => setMovies(data));
+  }, []);
+
+  const filtered = movies.filter(m => m.title.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="App">
+      <header>AlphaMovie</header>
+      <input type="text" placeholder="ابحث عن فيلم أو مسلسل..." value={search} onChange={e=>setSearch(e.target.value)} />
+      <div className="movies-container">
+        {filtered.length ? filtered.map(movie => <MovieCard key={movie.id} movie={movie} />) : <p>لا توجد أفلام أو مسلسلات</p>}
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
+
+export default App;
+import React from "react";
+
+function MovieCard({ movie }) {
+  return (
+    <div className="movie-box">
+      <img src={movie.image} alt={movie.title} />
+      <h3>{movie.title}</h3>
+      <p>{movie.year}</p>
+    </div>
+  );
+}
+
+export default MovieCard;
+import React from "react";
+
+function BottomNav() {
+  return (
+    <div className="bottom-nav">
+      <a href="#">الصفحة الرئيسية</a>
+      <a href="#">البحث</a>
+      <a href="#">الأقسام</a>
+    </div>
+  );
+}
+
+export default BottomNav;
+body { margin:0; font-family:sans-serif; background:#111; color:white; }
+header { padding:15px; text-align:center; background:#181818; font-size:22px; font-weight:bold; }
+input { width:90%; margin:10px auto; padding:10px; display:block; border-radius:8px; border:none; }
+.movies-container { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:15px; padding:20px; }
+.movie-box { background:#222; border-radius:10px; padding:10px; text-align:center; }
+.movie-box img { width:100%; border-radius:10px; }
+.bottom-nav { position:fixed; bottom:0; left:0; width:100%; background:#181818; display:flex; justify-content:space-around; padding:10px 0; border-top:1px solid #333; }
+.bottom-nav a { color:#bbb; text-decoration:none; text-align:center; }
+.bottom-nav a:hover { color:#fff; }
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaMovie</title>
+</head>
+<body>
+<div id="root"></div>
+</body>
+</html>
